@@ -1158,13 +1158,19 @@ class MCEdgeDropBlock2d(nn.Module): #MC
                 f"feature는 [B, C, H, W] 형태여야 합니다. 현재 shape: {feature.shape}"
             )
 
+        orig_dtype = feature.dtype
+
         if detach:
             feature = feature.detach()
+
+        # AMP / half validation에서 dtype mismatch 방지
+        feature = feature.float()
 
         B, C, H, W = feature.shape
         device = feature.device
         dtype = feature.dtype
 
+ 
         # -------------------------------------------------
         # 1. 8방향 이웃 평균 계산
         # -------------------------------------------------
@@ -1218,8 +1224,8 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         # -------------------------------------------------
         # 2. 같은 부호를 가진 인접 grid 개수 계산
         # -------------------------------------------------
-        positive_mask = (contrast > 0).float()
-        negative_mask = (contrast < 0).float()
+        positive_mask = (contrast > 0).to(dtype=dtype)
+        negative_mask = (contrast < 0).to(dtype=dtype)
 
         same_sign_kernel = torch.ones(
             (C, 1, 3, 3),
@@ -1261,7 +1267,7 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         # DropBlock 확률 p_map에 쓰려면 음수 edge는 부적절하므로 magnitude로 변환
         edge = signed_edge.abs()
 
-        return edge
+        return edge.to(dtype=orig_dtype)
 
         
     def forward(self, x):
@@ -1293,7 +1299,7 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         p_map = self.gamma * score / (score_mean + self.eps)
         p_map = p_map.clamp(0.0, 1.0)
 
-        center_mask = (torch.rand_like(p_map) < p_map).to(dtype=x.dtype) #확률 적용하여 드롭블락 중심점 생성하는 부분
+        center_mask = (torch.rand_like(p_map) < p_map).to(dtype=p_map.dtype) #확률 적용하여 드롭블락 중심점 생성하는 부분
 
         block_mask = F.max_pool2d(  #중심점 주변으로 블록생성
             center_mask,
