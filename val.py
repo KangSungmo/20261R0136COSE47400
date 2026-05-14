@@ -342,31 +342,21 @@ def run(
         # MC Inference
         with dt[1]:
             if mc_samples > 1:
-                if compute_loss:
-                    # train.py가 epoch 중간에 호출하는 validation에서는 loss 계산도 같이 하는데,
-                    # MC validation까지 같이 하면 너무 느리고 구조도 복잡해짐.
-                    # 따라서 MC val은 standalone val.py에서 쓰는 것을 권장.
-                    preds_mean, mc_info = mc_forward_raw(
-                        model=model,
-                        im=im,
-                        samples=mc_samples,
-                        augment=augment,
-                        visualize=False,
-                    )
-                    train_out = None
-                else:
-                    preds_mean, mc_info = mc_forward_raw(
-                        model=model,
-                        im=im,
-                        samples=mc_samples,
-                        augment=augment,
-                        visualize=False,
-                    )
-                    train_out = None
-
+                print(f"[MC VAL] mc_samples={mc_samples}, mc_var_weight={mc_var_weight}")
+        
+                preds_mean, mc_info = mc_forward_raw(
+                    model=model,
+                    im=im,
+                    samples=mc_samples,
+                    augment=augment,
+                    visualize=False,
+                )
+        
+                train_out = None
+        
             else:
                 preds, train_out = model(im) if compute_loss else (model(im, augment=augment), None)
-
+        
                 if isinstance(preds, (tuple, list)):
                     preds = preds[0]
 
