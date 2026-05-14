@@ -88,13 +88,30 @@ class Detect(nn.Module):
         self.anchor_grid = [torch.empty(0) for _ in range(self.nl)]  # init anchor grid
         self.register_buffer("anchors", torch.tensor(anchors).float().view(self.nl, -1, 2))  # shape(nl,na,2)
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
+        self.mc_dropblocks = nn.ModuleList( #MC
+            MCEdgeDropBlock2d(
+                gamma=0.03,
+                block_size=5,
+                lambda_edge=3.0,
+                eps=1e-6,
+                always_on=False
+            )
+            for _ in ch
+        )
+        
+        self.use_mc_dropblock = True #MC
+        
         self.inplace = inplace  # use inplace ops (e.g. slice assignment)
 
     def forward(self, x):
         """Processes input through YOLOv5 layers, altering shape for detection: `x(bs, 3, ny, nx, 85)`."""
         z = []  # inference output
-        for i in range(self.nl):
-            x[i] = self.m[i](x[i])  # conv
+        for i in range(self.nl): # MC # P3/P4/P5 feature에 DropBlock 적용
+            if self.use_mc_dropblock:
+                x[i] = self.mc_dropblocks[i](x[i])
+        
+            x[i] = self.m[i](x[i])  # conv #MC
+            
             bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
