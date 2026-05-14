@@ -1293,7 +1293,7 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         p_map = self.gamma * score / (score_mean + self.eps)
         p_map = p_map.clamp(0.0, 1.0)
 
-        center_mask = (torch.rand_like(p_map) < p_map).float() #확률 적용하여 드롭블락 중심점 생성하는 부분
+        center_mask = (torch.rand_like(p_map) < p_map).to(dtype=x.dtype) #확률 적용하여 드롭블락 중심점 생성하는 부분
 
         block_mask = F.max_pool2d(  #중심점 주변으로 블록생성
             center_mask,
