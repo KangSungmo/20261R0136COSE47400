@@ -353,6 +353,19 @@ def train(hyp, opt, device, callbacks):
     last_opt_step = -1
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
+    # Custom metric log file
+    metrics_csv = save_dir / "custom_metrics.csv"
+    
+    if RANK in {-1, 0} and start_epoch == 0:
+        with open(metrics_csv, "w") as f:
+            f.write(
+                "epoch,"
+                "train_box_loss,train_obj_loss,train_cls_loss,"
+                "precision,recall,map50,map50_95,"
+                "val_box_loss,val_obj_loss,val_cls_loss,"
+                "lr0,lr1,lr2\n"
+            )
+            
     scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = torch.cuda.amp.GradScaler(enabled=amp)
     stopper, stop = EarlyStopping(patience=opt.patience), False
