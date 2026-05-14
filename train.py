@@ -468,6 +468,10 @@ def train(hyp, opt, device, callbacks):
                     plots=False,
                     callbacks=callbacks,
                     compute_loss=compute_loss,
+                    # MC
+                    mc_samples=getattr(opt, "mc_samples", 1),
+                    mc_var_weight=getattr(opt, "mc_var_weight", 0.0),
+                    mc_var_thres=getattr(opt, "mc_var_thres", None),
                 )
 
             # Update best mAP
@@ -613,6 +617,11 @@ def parse_opt(known=False):
     # NDJSON logging
     parser.add_argument("--ndjson-console", action="store_true", help="Log ndjson to console")
     parser.add_argument("--ndjson-file", action="store_true", help="Log ndjson to file")
+
+    # MC
+    parser.add_argument("--mc-samples", type=int, default=1, help="number of MC stochastic forward passes for validation")
+    parser.add_argument("--mc-var-weight", type=float, default=0.0, help="variance penalty weight for MC NMS")
+    parser.add_argument("--mc-var-thres", type=float, default=None, help="remove boxes with normalized localization std above threshold")
 
     return parser.parse_known_args()[0] if known else parser.parse_args()
 
