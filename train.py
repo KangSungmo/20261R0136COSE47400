@@ -486,7 +486,37 @@ def train(hyp, opt, device, callbacks):
                     mc_var_weight=getattr(opt, "mc_var_weight", 0.0),
                     mc_var_thres=getattr(opt, "mc_var_thres", None),
                 )
-
+            # -------------------------------
+            # Custom epoch metrics logging
+            # -------------------------------
+            train_box_loss = float(mloss[0])
+            train_obj_loss = float(mloss[1])
+            train_cls_loss = float(mloss[2])
+            
+            precision = float(results[0])
+            recall = float(results[1])
+            map50 = float(results[2])
+            map50_95 = float(results[3])
+            
+            val_box_loss = float(results[4])
+            val_obj_loss = float(results[5])
+            val_cls_loss = float(results[6])
+            
+            LOGGER.info(
+                f"\n[Epoch {epoch + 1}/{epochs}] "
+                f"train_loss(box/obj/cls)=({train_box_loss:.5f}, {train_obj_loss:.5f}, {train_cls_loss:.5f}) | "
+                f"P={precision:.4f}, R={recall:.4f}, mAP50={map50:.4f}, mAP50-95={map50_95:.4f} | "
+                f"val_loss(box/obj/cls)=({val_box_loss:.5f}, {val_obj_loss:.5f}, {val_cls_loss:.5f})"
+            )
+            
+            with open(metrics_csv, "a") as f:
+                f.write(
+                    f"{epoch + 1},"
+                    f"{train_box_loss:.6f},{train_obj_loss:.6f},{train_cls_loss:.6f},"
+                    f"{precision:.6f},{recall:.6f},{map50:.6f},{map50_95:.6f},"
+                    f"{val_box_loss:.6f},{val_obj_loss:.6f},{val_cls_loss:.6f},"
+                    f"{lr[0]:.8f},{lr[1]:.8f},{lr[2]:.8f}\n"
+                )
             # Update best mAP
             fi = fitness(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
             stop = stopper(epoch=epoch, fitness=fi)  # early stop check
