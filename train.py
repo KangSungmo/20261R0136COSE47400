@@ -267,7 +267,8 @@ def train(hyp, opt, device, callbacks):
 
     # EMA
     ema = ModelEMA(model) if RANK in {-1, 0} else None
-
+    if ema:
+        enable_edge_dropblock(ema.ema, opt.edge_dropblock)
     # Resume
     best_fitness, start_epoch = 0.0, 0
     if pretrained:
