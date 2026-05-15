@@ -96,6 +96,8 @@ from utils.torch_utils import (
     torch_distributed_zero_first,
 )
 
+from utils.mc_utils import enable_edge_dropblock
+
 LOCAL_RANK = int(os.getenv("LOCAL_RANK", -1))  # https://pytorch.org/docs/stable/elastic/run.html
 RANK = int(os.getenv("RANK", -1))
 WORLD_SIZE = int(os.getenv("WORLD_SIZE", 1))
@@ -223,6 +225,8 @@ def train(hyp, opt, device, callbacks):
         LOGGER.info(f"Transferred {len(csd)}/{len(model.state_dict())} items from {weights}")  # report
     else:
         model = Model(cfg, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
+        # EdgeDropBlock 제안 모델 학습 시 켜기
+        enable_edge_dropblock(model, True)
     amp = check_amp(model)  # check AMP
 
     # Freeze
