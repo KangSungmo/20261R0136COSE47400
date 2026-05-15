@@ -425,10 +425,45 @@ def train(hyp, opt, device, callbacks):
 
             # Forward
             with torch.cuda.amp.autocast(amp):
-                pred = model(imgs)  # forward
-                loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
+                mc_train_samples = max(int(getattr(opt, "mc_train_samples", 1)), 1)
+                targets_device = targets.to(device)
+            
+                if mc_train_samples > 1:
+                    # DDP를 안 쓰는 단일 GPU 기준
+                    raw_model = model.module if hasattr(model, "module") else model
+            
+                    # 1) backbone + neck은 1번만 실행
+                    det_features, detect_layer = raw_model.forward_to_detect_features(imgs)
+            
+                    loss_sum = 0.0
+                    loss_items_sum = torch.zeros(3, device=device)
+            
+                    # 2) Detect head만 K번 반복
+                    for _ in range(mc_train_samples):
+                        # Detect.forward가 list 내부를 덮어쓰므로 매번 새 list 생성
+                        if isinstance(det_features, (list, tuple)):
+                            det_in = [f for f in det_features]
+                        else:
+                            det_in = det_features
+            
+                        pred_i = detect_layer(det_in)
+            
+                        # training mode에서는 Detect.forward가 loss용 prediction list를 반환
+                        loss_i, loss_items_i = compute_loss(pred_i, targets_device)
+            
+                        loss_sum = loss_sum + loss_i
+                        loss_items_sum = loss_items_sum + loss_items_i
+            
+                    loss = loss_sum / mc_train_samples
+                    loss_items = loss_items_sum / mc_train_samples
+            
+                else:
+                    pred = model(imgs)
+                    loss, loss_items = compute_loss(pred, targets_device)
+            
                 if RANK != -1:
-                    loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
+                    loss *= WORLD_SIZE
+            
                 if opt.quad:
                     loss *= 4.0
 
@@ -665,7 +700,12 @@ def parse_opt(known=False):
     parser.add_argument("--mc-samples", type=int, default=1, help="number of MC stochastic forward passes for validation")
     parser.add_argument("--mc-var-weight", type=float, default=0.0, help="variance penalty weight for MC NMS")
     parser.add_argument("--mc-var-thres", type=float, default=None, help="remove boxes with normalized localization std above threshold")
-
+    parser.add_argument(
+    "--mc-train-samples",
+    type=int,
+    default=1,
+    help="number of cached MC Detect-head forward passes per batch during training"
+)
     return parser.parse_known_args()[0] if known else parser.parse_args()
 
 
