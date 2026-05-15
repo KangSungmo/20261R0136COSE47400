@@ -84,3 +84,123 @@ def mc_forward_raw(model, im, samples=10, augment=False, visualize=False):
         "cls_var": cls_var,
         "pred_stack": pred_stack,
     }
+
+
+
+# MC
+def _get_raw_model(model):
+    """
+    DetectMultiBackend로 감싸진 모델이면 내부 PyTorch 모델을 꺼낸다.
+    """
+    if hasattr(model, "model") and hasattr(model.model, "forward_to_detect_features"):
+        return model.model
+
+    if hasattr(model, "forward_to_detect_features"):
+        return model
+
+    return None
+
+
+def _set_mc_modules_temporarily(model, enabled=True):
+    """
+    always_on 속성을 가진 MC DropBlock 모듈 상태를 임시 변경하기 위해
+    기존 상태를 저장하고 변경한다.
+    """
+    states = []
+
+    for m in model.modules():
+        if hasattr(m, "always_on"):
+            states.append((m, m.always_on))
+            m.always_on = enabled
+
+    return states
+
+
+def _restore_mc_modules(states):
+    for m, old_state in states:
+        m.always_on = old_state
+
+
+@torch.no_grad()
+def mc_forward_cached_detect(model, im, samples=10, augment=False, visualize=False):
+    """
+    backbone + neck은 1번만 실행하고,
+    Detect head만 samples번 반복 실행하는 MC inference.
+
+    반환:
+        mean_pred: [B, N, 5 + nc]
+        mc_info:
+            xyxy_var
+            xyxy_std
+            obj_var
+            cls_var
+            pred_stack
+    """
+    # augment inference는 구조가 복잡하므로 기존 전체 forward 방식 사용 권장
+    if augment:
+        return mc_forward_raw(model, im, samples=samples, augment=augment, visualize=visualize)
+
+    raw_model = _get_raw_model(model)
+
+    # raw YOLO model을 못 찾으면 기존 전체 forward 방식으로 fallback
+    if raw_model is None:
+        return mc_forward_raw(model, im, samples=samples, augment=augment, visualize=visualize)
+
+    raw_model.eval()
+
+    states = _set_mc_modules_temporarily(raw_model, enabled=True)
+
+    try:
+        # 1) backbone + neck 1회 실행
+        det_features, detect_layer = raw_model.forward_to_detect_features(
+            im,
+            profile=False,
+            visualize=visualize,
+        )
+
+        preds = []
+
+        # 2) Detect head만 samples번 반복
+        for _ in range(samples):
+            # Detect.forward는 x[i]를 덮어쓰므로 list는 매번 새로 만든다.
+            # tensor 자체는 in-place 수정하지 않으므로 clone은 보통 필요 없다.
+            if isinstance(det_features, (list, tuple)):
+                det_in = [f for f in det_features]
+            else:
+                det_in = det_features
+
+            y = detect_layer(det_in)
+
+            if isinstance(y, (tuple, list)):
+                y = y[0]
+
+            preds.append(y.float())
+
+        pred_stack = torch.stack(preds, dim=0)  # [T, B, N, 5 + nc]
+        mean_pred = pred_stack.mean(dim=0)
+
+        xyxy_stack = xywh2xyxy_tensor(pred_stack[..., :4])
+        xyxy_var = xyxy_stack.var(dim=0, unbiased=False)
+        xyxy_std = torch.sqrt(xyxy_var.clamp_min(0.0))
+
+        obj_var = pred_stack[..., 4:5].var(dim=0, unbiased=False)
+
+        if pred_stack.shape[-1] > 5:
+            cls_var = pred_stack[..., 5:].var(dim=0, unbiased=False)
+        else:
+            cls_var = None
+
+        mc_info = {
+            "xyxy_var": xyxy_var,
+            "xyxy_std": xyxy_std,
+            "obj_var": obj_var,
+            "cls_var": cls_var,
+            "pred_stack": pred_stack,
+        }
+
+        return mean_pred, mc_info
+
+    finally:
+        _restore_mc_modules(states)
+
+# MC
