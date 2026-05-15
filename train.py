@@ -225,8 +225,9 @@ def train(hyp, opt, device, callbacks):
         LOGGER.info(f"Transferred {len(csd)}/{len(model.state_dict())} items from {weights}")  # report
     else:
         model = Model(cfg, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
-        # EdgeDropBlock 제안 모델 학습 시 켜기
-        enable_edge_dropblock(model, True)
+        # command option으로 EdgeDropBlock on/off
+        enable_edge_dropblock(model, opt.edge_dropblock)
+     
     amp = check_amp(model)  # check AMP
 
     # Freeze
@@ -709,7 +710,12 @@ def parse_opt(known=False):
     type=int,
     default=1,
     help="number of cached MC Detect-head forward passes per batch during training"
-)
+    )
+    parser.add_argument(
+        "--edge-dropblock",
+        action="store_true",
+        help="enable Edge-guided DropBlock in Detect head"
+    )    
     return parser.parse_known_args()[0] if known else parser.parse_args()
 
 
