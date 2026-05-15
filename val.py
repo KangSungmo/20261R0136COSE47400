@@ -61,7 +61,7 @@ from utils.plots import output_to_target, plot_images, plot_val_study
 from utils.torch_utils import select_device, smart_inference_mode
 
 #MC
-from utils.mc_utils import mc_forward_raw
+from utils.mc_utils import mc_forward_cached_detect as mc_forward_raw
 from utils.mc_nms import mc_non_max_suppression
 
 def save_one_txt(predn, save_conf, shape, file):
