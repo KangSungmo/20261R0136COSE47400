@@ -66,7 +66,7 @@ from utils.general import (
 )
 from utils.torch_utils import select_device, smart_inference_mode
 
-from utils.mc_utils import mc_forward_raw #MC
+from utils.mc_utils import mc_forward_cached_detect as mc_forward_raw
 from utils.mc_nms import mc_non_max_suppression #MC
 
 @smart_inference_mode()
