@@ -99,7 +99,7 @@ class Detect(nn.Module):
             for _ in ch
         )
         
-        self.use_mc_dropblock = True #MC
+        self.use_mc_dropblock = False #MC
         
         self.inplace = inplace  # use inplace ops (e.g. slice assignment)
 
@@ -107,7 +107,7 @@ class Detect(nn.Module):
         """Processes input through YOLOv5 layers, altering shape for detection: `x(bs, 3, ny, nx, 85)`."""
         z = []  # inference output
         for i in range(self.nl): # MC # P3/P4/P5 feature에 DropBlock 적용
-            if self.use_mc_dropblock:
+            if getattr(self, "use_mc_dropblock", False):
                 x[i] = self.mc_dropblocks[i](x[i])
         
             x[i] = self.m[i](x[i])  # conv #MC
