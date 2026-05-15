@@ -204,3 +204,8 @@ def mc_forward_cached_detect(model, im, samples=10, augment=False, visualize=Fal
         _restore_mc_modules(states)
 
 # MC
+# EdgeDrop
+def enable_edge_dropblock(model, enabled=True):
+    for m in model.modules():
+        if hasattr(m, "use_mc_dropblock"):
+            m.use_mc_dropblock = enabled
