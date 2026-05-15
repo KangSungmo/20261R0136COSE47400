@@ -1227,12 +1227,17 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         positive_mask = (contrast > 0).to(dtype=dtype)
         negative_mask = (contrast < 0).to(dtype=dtype)
 
-        same_sign_kernel = torch.ones(
+        same_sign_kernel = torch.zeroes(
             (C, 1, 3, 3),
             device=device,
             dtype=dtype
         )
-        same_sign_kernel[:, :, 1, 1] = 0.0
+        # 상하좌우만 1
+        same_sign_kernel[:, :, 0, 1] = 1.0  # 위
+        same_sign_kernel[:, :, 1, 0] = 1.0  # 왼쪽
+        same_sign_kernel[:, :, 1, 2] = 1.0  # 오른쪽
+        same_sign_kernel[:, :, 2, 1] = 1.0  # 아래
+       
 
         pos_count = F.conv2d(
             F.pad(positive_mask, (1, 1, 1, 1), mode="constant", value=0.0),
