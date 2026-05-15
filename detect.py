@@ -206,59 +206,59 @@ def run(
                 im = im[None]  # expand for batch dim
             if model.xml and im.shape[0] > 1:
                 ims = torch.chunk(im, im.shape[0], 0)
-    # Inference
-with dt[1]:
-    visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
-
-    if mc_samples > 1:
-        if getattr(model, "xml", False):
-            raise NotImplementedError("MC inference는 PyTorch 모델 경로에서 먼저 사용하세요. XML/OpenVINO 경로는 제외합니다.")
-
-        pred_mean, mc_info = mc_forward_raw(
-            model=model,
-            im=im,
-            samples=mc_samples,
-            augment=augment,
-            visualize=visualize,
-        )
-
-    else:
-        if model.xml and im.shape[0] > 1:
-            pred = None
-            for image in ims:
-                if pred is None:
-                    pred = model(image, augment=augment, visualize=visualize).unsqueeze(0)
+        # Inference
+        with dt[1]:
+            visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
+        
+            if mc_samples > 1:
+                if getattr(model, "xml", False):
+                    raise NotImplementedError("MC inference는 PyTorch 모델 경로에서 먼저 사용하세요. XML/OpenVINO 경로는 제외합니다.")
+        
+                pred_mean, mc_info = mc_forward_raw(
+                    model=model,
+                    im=im,
+                    samples=mc_samples,
+                    augment=augment,
+                    visualize=visualize,
+                )
+        
+            else:
+                if model.xml and im.shape[0] > 1:
+                    pred = None
+                    for image in ims:
+                        if pred is None:
+                            pred = model(image, augment=augment, visualize=visualize).unsqueeze(0)
+                        else:
+                            pred = torch.cat((pred, model(image, augment=augment, visualize=visualize).unsqueeze(0)), dim=0)
+                    pred = [pred, None]
                 else:
-                    pred = torch.cat((pred, model(image, augment=augment, visualize=visualize).unsqueeze(0)), dim=0)
-            pred = [pred, None]
-        else:
-            pred = model(im, augment=augment, visualize=visualize)
+                    pred = model(im, augment=augment, visualize=visualize)
 
-    # NMS
-    with dt[2]:
-        if mc_samples > 1:
-            pred = mc_non_max_suppression(
-                prediction=pred_mean,
-                xyxy_var=mc_info["xyxy_var"],
-                conf_thres=conf_thres,
-                iou_thres=iou_thres,
-                classes=classes,
-                agnostic=agnostic_nms,
-                max_det=max_det,
-                variance_weight=mc_var_weight,
-                variance_thres=mc_var_thres,
-                img_size=im.shape[-1],
-                return_extra=True,
-            )
-        else:
-            pred = non_max_suppression(
-                pred,
-                conf_thres,
-                iou_thres,
-                classes,
-                agnostic_nms,
-                max_det=max_det,
-            )
+        # NMS
+        with dt[2]:
+            if mc_samples > 1:
+                pred = mc_non_max_suppression(
+                    prediction=pred_mean,
+                    xyxy_var=mc_info["xyxy_var"],
+                    conf_thres=conf_thres,
+                    iou_thres=iou_thres,
+                    classes=classes,
+                    agnostic=agnostic_nms,
+                    max_det=max_det,
+                    variance_weight=mc_var_weight,
+                    variance_thres=mc_var_thres,
+                    img_size=im.shape[-1],
+                    return_extra=True,
+                )
+            else:
+                pred = non_max_suppression(
+                    pred,
+                    conf_thres,
+                    iou_thres,
+                    classes,
+                    agnostic_nms,
+                    max_det=max_det,
+                )
             
         # Second-stage classifier (optional)
         # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
