@@ -189,7 +189,36 @@ class BaseModel(nn.Module):
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
         return x
-
+    # MC
+    def forward_to_detect_features(self, x, profile=False, visualize=False):
+        """
+        backbone + neck까지만 1회 실행하고,
+        Detect layer에 들어갈 P3/P4/P5 feature를 반환한다.
+    
+        return:
+            det_in: Detect에 들어갈 feature list [P3, P4, P5]
+            detect_layer: Detect module
+        """
+        y = []
+    
+        for m in self.model:
+            # Detect layer 직전에서 멈춤
+            if m.__class__.__name__ == "Detect":
+                if m.f != -1:
+                    det_in = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]
+                else:
+                    det_in = x
+    
+                return det_in, m
+    
+            if m.f != -1:
+                x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]
+    
+            x = m(x)
+            y.append(x if m.i in self.save else None)
+    
+        raise RuntimeError("Detect layer를 찾지 못했습니다.")
+    
     def _profile_one_layer(self, m, x, dt):
         """Profiles a single layer's performance by computing GFLOPs, execution time, and parameters."""
         c = m == self.model[-1]  # is final layer, copy input as inplace fix
