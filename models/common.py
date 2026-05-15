@@ -1120,7 +1120,7 @@ class MCEdgeDropBlock2d(nn.Module): #MC
     def __init__(
         self,
         gamma=0.03,
-        block_size=5,
+        block_size=1,
         lambda_edge=3.0,
         eps=1e-6,
         always_on=True
