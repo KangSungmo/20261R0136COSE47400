@@ -105,6 +105,19 @@ class Detect(nn.Module):
 
     def forward(self, x):
         """Processes input through YOLOv5 layers, altering shape for detection: `x(bs, 3, ny, nx, 85)`."""
+        #디버깅
+        if not hasattr(self, "_debug_forward_count"):
+            self._debug_forward_count = 0
+
+        if self._debug_forward_count < 50:
+            with open("detect_forward_debug.txt", "a") as f:
+                f.write(
+                    f"Detect.forward called | "
+                    f"training={self.training}, "
+                    f"use_mc_dropblock={getattr(self, 'use_mc_dropblock', None)}\n"
+                )
+            self._debug_forward_count += 1
+        
         z = []  # inference output
         for i in range(self.nl): # MC # P3/P4/P5 feature에 DropBlock 적용
             if getattr(self, "use_mc_dropblock", False):
