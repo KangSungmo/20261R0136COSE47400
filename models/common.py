@@ -1280,7 +1280,19 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         x: dropout을 적용할 feature map [B, C, H, W]
         edge_source: edge map을 계산할 이전 feature map [B, C, H, W]
         """
+        #디버깅
+        if not hasattr(self, "_debug_edgedrop_count"):
+            self._debug_edgedrop_count = 0
 
+        if self._debug_edgedrop_count < 50:
+            with open("edgedrop_debug.txt", "a") as f:
+                f.write(
+                    f"called training={self.training}, "
+                    f"always_on={self.always_on}\n"
+                )
+            self._debug_edgedrop_count += 1
+
+        
         if (not self.training) and (not self.always_on):
             return x
 
@@ -1305,7 +1317,21 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         p_map = p_map.clamp(0.0, 1.0)
 
         center_mask = (torch.rand_like(p_map) < p_map).to(dtype=p_map.dtype) #확률 적용하여 드롭블락 중심점 생성하는 부분
+        #디버깅
+        if not hasattr(self, "_debug_dropmean_count"):
+            self._debug_dropmean_count = 0
 
+        if self._debug_dropmean_count < 50:
+            with open("edgedrop_debug.txt", "a") as f:
+                f.write(
+                    f"[MASK] training={self.training}, "
+                    f"always_on={self.always_on}, "
+                    f"p_mean={p_map.float().mean().item():.6f}, "
+                    f"p_max={p_map.float().max().item():.6f}, "
+                    f"drop_mean={center_mask.float().mean().item():.6f}\n"
+                )
+            self._debug_dropmean_count += 1
+            
         # block_mask = F.max_pool2d(  #중심점 주변으로 블록생성
         #     center_mask,
         #     kernel_size=self.block_size,
