@@ -226,7 +226,8 @@ def train(hyp, opt, device, callbacks):
     else:
         model = Model(cfg, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
         # command option으로 EdgeDropBlock on/off
-        enable_edge_dropblock(model, opt.edge_dropblock)
+    #항상 켜져야됨
+    enable_edge_dropblock(model, opt.edge_dropblock)
      
     amp = check_amp(model)  # check AMP
 
