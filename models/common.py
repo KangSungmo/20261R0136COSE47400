@@ -1227,7 +1227,7 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         positive_mask = (contrast > 0).to(dtype=dtype)
         negative_mask = (contrast < 0).to(dtype=dtype)
 
-        same_sign_kernel = torch.zeroes(
+        same_sign_kernel = torch.zeros(
             (C, 1, 3, 3),
             device=device,
             dtype=dtype
