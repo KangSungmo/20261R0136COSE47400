@@ -1335,15 +1335,6 @@ class MCEdgeDropBlock2d(nn.Module): #MC
         p_map = p_map.clamp(0.0, 0.3)
 
         center_mask = (torch.rand_like(p_map) < p_map).to(dtype=p_map.dtype) #확률 적용하여 드롭블락 중심점 생성하는 부분
-            
-        block_mask = F.max_pool2d(  #중심점 주변으로 블록생성
-            center_mask,
-            kernel_size=self.block_size,
-            stride=1,
-            padding=self.block_size // 2
-        )
-
-        #block_mask = block_mask.clamp(0.0, 1.0)
         
         #디버깅
         if not hasattr(self, "_debug_dropmean_count"):
@@ -1357,12 +1348,23 @@ class MCEdgeDropBlock2d(nn.Module): #MC
                     f"p_mean={p_map.float().mean().item():.6f}, "
                     f"p_max={p_map.float().max().item():.6f}, "
                     f"p_min={p_map.float().min().item():.6f}, "
-                    f"drop_mean={block_mask.float().mean().item():.6f}\n"
+                    f"drop_mean={center_mask.float().mean().item():.6f}\n"
                 )
             self._debug_dropmean_count += 1
+        
+        # block_mask = F.max_pool2d(  #중심점 주변으로 블록생성
+        #     center_mask,
+        #     kernel_size=self.block_size,
+        #     stride=1,
+        #     padding=self.block_size // 2
+        # )
+
+        #block_mask = block_mask.clamp(0.0, 1.0)
+        
+
             
-        keep_mask = 1.0 - block_mask
-        #keep_mask = 1.0 - center_mask
+        # keep_mask = 1.0 - block_mask
+        keep_mask = 1.0 - center_mask
 
         keep_ratio = keep_mask.mean(dim=(1, 2, 3), keepdim=True).clamp(min=self.eps)
 
