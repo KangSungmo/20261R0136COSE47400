@@ -1310,11 +1310,29 @@ class MCEdgeDropBlock2d(nn.Module): #MC
                 "현재 layer는 feature size가 바뀌는 layer일 수 있습니다."
             )
 
-        score = self.eps + self.lambda_edge * edge
-        score_mean = score.mean(dim=(2, 3), keepdim=True)
+        # score = self.eps + self.lambda_edge * edge
+        # score_mean = score.mean(dim=(2, 3), keepdim=True)
 
+        # p_map = self.gamma * score / (score_mean + self.eps)
+        # p_map = p_map.clamp(0.0, 0.7) #1이면 항상 drop되니까
+
+        # edge를 이미지/feature별 spatial 범위에서 0~1로 정규화
+        edge_min = edge.amin(dim=(2, 3), keepdim=True)
+        edge_max = edge.amax(dim=(2, 3), keepdim=True)
+        
+        edge_norm = (edge - edge_min) / (edge_max - edge_min + self.eps)
+        
+        # edge score를 0.2~0.8 사이로 squeeze
+        score_low = 0.2
+        score_high = 0.8
+        score = score_low + (score_high - score_low) * edge_norm
+        
+        # 평균 drop 확률은 gamma가 되도록 다시 정규화
+        score_mean = score.mean(dim=(2, 3), keepdim=True)
         p_map = self.gamma * score / (score_mean + self.eps)
-        p_map = p_map.clamp(0.0, 1.0)
+        
+        # 최종 확률 상한
+        p_map = p_map.clamp(0.0, 0.3)
 
         center_mask = (torch.rand_like(p_map) < p_map).to(dtype=p_map.dtype) #확률 적용하여 드롭블락 중심점 생성하는 부분
         #디버깅
