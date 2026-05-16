@@ -1346,6 +1346,7 @@ class MCEdgeDropBlock2d(nn.Module): #MC
                     f"always_on={self.always_on}, "
                     f"p_mean={p_map.float().mean().item():.6f}, "
                     f"p_max={p_map.float().max().item():.6f}, "
+                    f"p_min={p_map.float().min().item():.6f}, "
                     f"drop_mean={center_mask.float().mean().item():.6f}\n"
                 )
             self._debug_dropmean_count += 1
