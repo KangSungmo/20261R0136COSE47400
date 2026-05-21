@@ -90,8 +90,8 @@ class Detect(nn.Module):
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
         self.mc_dropblocks = nn.ModuleList( #MC
             MCEdgeDropBlock2d(
-                gamma=0.03,
-                block_size=5,
+                gamma=0.1,
+                block_size=1,
                 lambda_edge=3.0,
                 eps=1e-6,
                 always_on=False
