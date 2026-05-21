@@ -431,7 +431,7 @@ def train(hyp, opt, device, callbacks):
                     imgs = nn.functional.interpolate(imgs, size=ns, mode="bilinear", align_corners=False)
 
             # Forward
-            with torch.cuda.amp.autocast(amp):
+            with torch.amp.autocast("cuda", enabled=amp):
                 mc_train_samples = max(int(getattr(opt, "mc_train_samples", 1)), 1)
                 targets_device = targets.to(device)
             
