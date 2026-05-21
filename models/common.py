@@ -1116,254 +1116,341 @@ class Classify(nn.Module):
 
 
 
-class MCEdgeDropBlock2d(nn.Module): #MC
+# class MCEdgeDropBlock2d(nn.Module): #MC
+#     def __init__(
+#         self,
+#         gamma=0.1,
+#         block_size=1,
+#         lambda_edge=3.0,
+#         eps=1e-6,
+#         always_on=True
+#     ):
+#         super().__init__()
+#         self.gamma = gamma
+#         self.block_size = block_size
+#         self.lambda_edge = lambda_edge
+#         self.eps = eps
+#         self.always_on = always_on
+
+#         if block_size % 2 == 0:
+#             raise ValueError("block_size는 홀수로 설정하세요. 예: 3, 5, 7")
+    
+#     def feature_to_edge_map(self, feature, eps=1e-6, detach=True):    
+#         # """
+#         # YOLOv5 neck에서 나온 feature map을 받아 edge map을 계산합니다.
+
+#         # feature: neck feature map [B, C, H, W]
+
+#         # 규칙:
+#         # 1) contrast map:
+#         #    contrast(i, j) = feature(i, j) - 주변 8방향 이웃 평균
+
+#         # 2) edge map:
+#         #    edge(i, j) = contrast(i, j) * 
+#         #                 contrast 부호가 같은 주변 8방향 이웃 개수
+
+#         # 반환:
+#         # edge map [B, C, H, W]
+#         # """
+
+#         if feature.dim() != 4:
+#             raise ValueError(
+#                 f"feature는 [B, C, H, W] 형태여야 합니다. 현재 shape: {feature.shape}"
+#             )
+
+#         orig_dtype = feature.dtype
+
+#         if detach:
+#             feature = feature.detach()
+
+#         # AMP / half validation에서 dtype mismatch 방지
+#         feature = feature.float()
+
+#         B, C, H, W = feature.shape
+#         device = feature.device
+#         dtype = feature.dtype
+
+ 
+#         # -------------------------------------------------
+#         # 1. 8방향 이웃 평균 계산
+#         # -------------------------------------------------
+#         # 3x3 kernel에서 center는 제외
+#         neighbor_kernel = torch.ones(
+#             (C, 1, 3, 3),
+#             device=device,
+#             dtype=dtype
+#         )
+#         neighbor_kernel[:, :, 1, 1] = 0.0
+
+#         # zero padding 후 convolution
+#         # 경계 부분은 실제 존재하는 이웃 개수만큼만 평균내기 위해 count map을 따로 계산
+#         padded_feature = F.pad(feature, (1, 1, 1, 1), mode="constant", value=0.0)
+
+#         neighbor_sum = F.conv2d(
+#             padded_feature,
+#             neighbor_kernel,
+#             padding=0,
+#             groups=C
+#         )
+
+#         # 각 위치별 실제 이웃 개수 계산
+#         # corner: 3개, edge: 5개, inner: 8개
+#         valid_grid = torch.ones(
+#             (1, 1, H, W),
+#             device=device,
+#             dtype=dtype
+#         )
+
+#         count_kernel = torch.ones(
+#             (1, 1, 3, 3),
+#             device=device,
+#             dtype=dtype
+#         )
+#         count_kernel[:, :, 1, 1] = 0.0
+
+#         padded_valid = F.pad(valid_grid, (1, 1, 1, 1), mode="constant", value=0.0)
+
+#         neighbor_count = F.conv2d(
+#             padded_valid,
+#             count_kernel,
+#             padding=0
+#         )
+
+#         neighbor_mean = neighbor_sum / (neighbor_count + eps)
+
+#         # contrast map
+#         contrast = feature - neighbor_mean
+
+#         # -------------------------------------------------
+#         # 2. 같은 부호를 가진 인접 grid 개수 계산
+#         # -------------------------------------------------
+#         positive_mask = (contrast > 0).to(dtype=dtype)
+#         negative_mask = (contrast < 0).to(dtype=dtype)
+
+#         same_sign_kernel = torch.ones(
+#             (C, 1, 3, 3),
+#             device=device,
+#             dtype=dtype
+#         )
+  
+#         same_sign_kernel[:, :, 1, 1] = 0.0  # 위
+
+       
+
+#         pos_count = F.conv2d(
+#             F.pad(positive_mask, (1, 1, 1, 1), mode="constant", value=0.0),
+#             same_sign_kernel,
+#             padding=0,
+#             groups=C
+#         )
+
+#         neg_count = F.conv2d(
+#             F.pad(negative_mask, (1, 1, 1, 1), mode="constant", value=0.0),
+#             same_sign_kernel,
+#             padding=0,
+#             groups=C
+#         )
+
+#         same_sign_count = torch.where(
+#             contrast > 0,
+#             pos_count,
+#             torch.where(
+#                 contrast < 0,
+#                 neg_count,
+#                 torch.zeros_like(contrast)
+#             )
+#         )
+
+#         # -------------------------------------------------
+#         # 3. edge map 계산
+#         # -------------------------------------------------
+#         # 규칙 그대로라면 signed_edge = contrast * same_sign_count
+#         signed_edge = contrast * same_sign_count
+
+#         # DropBlock 확률 p_map에 쓰려면 음수 edge는 부적절하므로 magnitude로 변환
+#         edge = signed_edge.abs()
+
+#         return edge.to(dtype=orig_dtype)
+
+        
+#     def forward(self, x):
+#         """
+#         x: dropout을 적용할 feature map [B, C, H, W]
+#         edge_source: edge map을 계산할 이전 feature map [B, C, H, W]
+#         """
+#         #디버깅
+#         if not hasattr(self, "_debug_edgedrop_count"):
+#             self._debug_edgedrop_count = 0
+
+#         if self._debug_edgedrop_count < 50:
+#             with open("edgedrop_debug.txt", "a") as f:
+#                 f.write(
+#                     f"called training={self.training}, "
+#                     f"always_on={self.always_on}\n"
+#                 )
+#             self._debug_edgedrop_count += 1
+
+        
+#         if (not self.training) and (not self.always_on):
+#             return x
+
+
+#         B, C, H, W = x.shape
+
+#         # 이전 feature map에서 edge map 계산
+#         edge = self.feature_to_edge_map(x, eps=self.eps, detach=True)
+
+#         # 여기서 resize하지 않음
+#         # 대신 크기가 다르면 에러를 내서 구조를 명확히 확인
+#         if edge.shape[-2:] != x.shape[-2:]:
+#             raise ValueError(
+#                 f"edge map size {edge.shape[-2:]} and feature map size {x.shape[-2:]} do not match. "
+#                 "현재 layer는 feature size가 바뀌는 layer일 수 있습니다."
+#             )
+
+#         # score = self.eps + self.lambda_edge * edge
+#         # score_mean = score.mean(dim=(2, 3), keepdim=True)
+
+#         # p_map = self.gamma * score / (score_mean + self.eps)
+#         # p_map = p_map.clamp(0.0, 0.7) #1이면 항상 drop되니까
+
+#         # edge를 이미지/feature별 spatial 범위에서 0~1로 정규화
+#         edge_min = edge.amin(dim=(2, 3), keepdim=True)
+#         edge_max = edge.amax(dim=(2, 3), keepdim=True)
+        
+#         edge_norm = (edge - edge_min) / (edge_max - edge_min + self.eps)
+        
+#         # edge score를 0.2~0.8 사이로 squeeze
+#         score_low = 0.2
+#         score_high = 0.8
+#         score = score_low + (score_high - score_low) * edge_norm
+        
+#         # 평균 drop 확률은 gamma가 되도록 다시 정규화
+#         score_mean = score.mean(dim=(2, 3), keepdim=True)
+#         p_map = self.gamma * score / (score_mean + self.eps)
+        
+#         # 최종 확률 상한
+#         p_map = p_map.clamp(0.0, 0.3)
+
+#         center_mask = (torch.rand_like(p_map) < p_map).to(dtype=p_map.dtype) #확률 적용하여 드롭블락 중심점 생성하는 부분
+        
+#         #디버깅
+#         if not hasattr(self, "_debug_dropmean_count"):
+#             self._debug_dropmean_count = 0
+
+#         if self._debug_dropmean_count < 50:
+#             with open("edgedrop_debug.txt", "a") as f:
+#                 f.write(
+#                     f"[MASK] training={self.training}, "
+#                     f"always_on={self.always_on}, "
+#                     f"p_mean={p_map.float().mean().item():.6f}, "
+#                     f"p_max={p_map.float().max().item():.6f}, "
+#                     f"p_min={p_map.float().min().item():.6f}, "
+#                     f"drop_mean={center_mask.float().mean().item():.6f}\n"
+#                 )
+#             self._debug_dropmean_count += 1
+        
+#         # block_mask = F.max_pool2d(  #중심점 주변으로 블록생성
+#         #     center_mask,
+#         #     kernel_size=self.block_size,
+#         #     stride=1,
+#         #     padding=self.block_size // 2
+#         # )
+
+#         #block_mask = block_mask.clamp(0.0, 1.0)
+        
+
+            
+#         # keep_mask = 1.0 - block_mask
+#         keep_mask = 1.0 - center_mask
+
+#         keep_ratio = keep_mask.mean(dim=(1, 2, 3), keepdim=True).clamp(min=self.eps)
+
+#         out = x * keep_mask / keep_ratio
+
+#         return out
+
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+#Uniform Dropblock
+class MCEdgeDropBlock2d(nn.Module):  # Uniform MC DropBlock
     def __init__(
         self,
         gamma=0.1,
         block_size=1,
-        lambda_edge=3.0,
+        lambda_edge=3.0,   # 기존 코드 호환용. 여기서는 사용하지 않음
         eps=1e-6,
         always_on=True
     ):
         super().__init__()
         self.gamma = gamma
         self.block_size = block_size
-        self.lambda_edge = lambda_edge
+        self.lambda_edge = lambda_edge  # unused
         self.eps = eps
         self.always_on = always_on
 
         if block_size % 2 == 0:
-            raise ValueError("block_size는 홀수로 설정하세요. 예: 3, 5, 7")
-    
-    def feature_to_edge_map(self, feature, eps=1e-6, detach=True):    
-        # """
-        # YOLOv5 neck에서 나온 feature map을 받아 edge map을 계산합니다.
+            raise ValueError("block_size는 홀수로 설정하세요. 예: 1, 3, 5, 7")
 
-        # feature: neck feature map [B, C, H, W]
-
-        # 규칙:
-        # 1) contrast map:
-        #    contrast(i, j) = feature(i, j) - 주변 8방향 이웃 평균
-
-        # 2) edge map:
-        #    edge(i, j) = contrast(i, j) * 
-        #                 contrast 부호가 같은 주변 8방향 이웃 개수
-
-        # 반환:
-        # edge map [B, C, H, W]
-        # """
-
-        if feature.dim() != 4:
-            raise ValueError(
-                f"feature는 [B, C, H, W] 형태여야 합니다. 현재 shape: {feature.shape}"
-            )
-
-        orig_dtype = feature.dtype
-
-        if detach:
-            feature = feature.detach()
-
-        # AMP / half validation에서 dtype mismatch 방지
-        feature = feature.float()
-
-        B, C, H, W = feature.shape
-        device = feature.device
-        dtype = feature.dtype
-
- 
-        # -------------------------------------------------
-        # 1. 8방향 이웃 평균 계산
-        # -------------------------------------------------
-        # 3x3 kernel에서 center는 제외
-        neighbor_kernel = torch.ones(
-            (C, 1, 3, 3),
-            device=device,
-            dtype=dtype
-        )
-        neighbor_kernel[:, :, 1, 1] = 0.0
-
-        # zero padding 후 convolution
-        # 경계 부분은 실제 존재하는 이웃 개수만큼만 평균내기 위해 count map을 따로 계산
-        padded_feature = F.pad(feature, (1, 1, 1, 1), mode="constant", value=0.0)
-
-        neighbor_sum = F.conv2d(
-            padded_feature,
-            neighbor_kernel,
-            padding=0,
-            groups=C
-        )
-
-        # 각 위치별 실제 이웃 개수 계산
-        # corner: 3개, edge: 5개, inner: 8개
-        valid_grid = torch.ones(
-            (1, 1, H, W),
-            device=device,
-            dtype=dtype
-        )
-
-        count_kernel = torch.ones(
-            (1, 1, 3, 3),
-            device=device,
-            dtype=dtype
-        )
-        count_kernel[:, :, 1, 1] = 0.0
-
-        padded_valid = F.pad(valid_grid, (1, 1, 1, 1), mode="constant", value=0.0)
-
-        neighbor_count = F.conv2d(
-            padded_valid,
-            count_kernel,
-            padding=0
-        )
-
-        neighbor_mean = neighbor_sum / (neighbor_count + eps)
-
-        # contrast map
-        contrast = feature - neighbor_mean
-
-        # -------------------------------------------------
-        # 2. 같은 부호를 가진 인접 grid 개수 계산
-        # -------------------------------------------------
-        positive_mask = (contrast > 0).to(dtype=dtype)
-        negative_mask = (contrast < 0).to(dtype=dtype)
-
-        same_sign_kernel = torch.ones(
-            (C, 1, 3, 3),
-            device=device,
-            dtype=dtype
-        )
-  
-        same_sign_kernel[:, :, 1, 1] = 0.0  # 위
-
-       
-
-        pos_count = F.conv2d(
-            F.pad(positive_mask, (1, 1, 1, 1), mode="constant", value=0.0),
-            same_sign_kernel,
-            padding=0,
-            groups=C
-        )
-
-        neg_count = F.conv2d(
-            F.pad(negative_mask, (1, 1, 1, 1), mode="constant", value=0.0),
-            same_sign_kernel,
-            padding=0,
-            groups=C
-        )
-
-        same_sign_count = torch.where(
-            contrast > 0,
-            pos_count,
-            torch.where(
-                contrast < 0,
-                neg_count,
-                torch.zeros_like(contrast)
-            )
-        )
-
-        # -------------------------------------------------
-        # 3. edge map 계산
-        # -------------------------------------------------
-        # 규칙 그대로라면 signed_edge = contrast * same_sign_count
-        signed_edge = contrast * same_sign_count
-
-        # DropBlock 확률 p_map에 쓰려면 음수 edge는 부적절하므로 magnitude로 변환
-        edge = signed_edge.abs()
-
-        return edge.to(dtype=orig_dtype)
-
-        
     def forward(self, x):
         """
         x: dropout을 적용할 feature map [B, C, H, W]
-        edge_source: edge map을 계산할 이전 feature map [B, C, H, W]
+
+        동작:
+        - 모든 위치에 동일한 확률 gamma로 DropBlock 중심점 생성
+        - block_size > 1이면 중심점 주변을 block 단위로 확장해서 drop
+        - keep_ratio로 activation scale 보정
         """
-        #디버깅
-        if not hasattr(self, "_debug_edgedrop_count"):
-            self._debug_edgedrop_count = 0
 
-        if self._debug_edgedrop_count < 50:
-            with open("edgedrop_debug.txt", "a") as f:
-                f.write(
-                    f"called training={self.training}, "
-                    f"always_on={self.always_on}\n"
-                )
-            self._debug_edgedrop_count += 1
-
-        
         if (not self.training) and (not self.always_on):
             return x
 
+        if self.gamma <= 0:
+            return x
 
         B, C, H, W = x.shape
 
-        # 이전 feature map에서 edge map 계산
-        edge = self.feature_to_edge_map(x, eps=self.eps, detach=True)
+        # -------------------------------------------------
+        # 1. 모든 위치에 동일한 drop 확률 적용
+        # -------------------------------------------------
+        # p_map shape: [B, C, H, W]
+        p_map = torch.full(
+            size=(B, C, H, W),
+            fill_value=self.gamma,
+            device=x.device,
+            dtype=x.dtype
+        )
 
-        # 여기서 resize하지 않음
-        # 대신 크기가 다르면 에러를 내서 구조를 명확히 확인
-        if edge.shape[-2:] != x.shape[-2:]:
-            raise ValueError(
-                f"edge map size {edge.shape[-2:]} and feature map size {x.shape[-2:]} do not match. "
-                "현재 layer는 feature size가 바뀌는 layer일 수 있습니다."
+        # DropBlock 중심점 생성
+        center_mask = (torch.rand_like(p_map) < p_map).to(dtype=x.dtype)
+
+        # -------------------------------------------------
+        # 2. 중심점을 block_size 크기의 block으로 확장
+        # -------------------------------------------------
+        if self.block_size > 1:
+            block_mask = F.max_pool2d(
+                center_mask,
+                kernel_size=self.block_size,
+                stride=1,
+                padding=self.block_size // 2
             )
 
-        # score = self.eps + self.lambda_edge * edge
-        # score_mean = score.mean(dim=(2, 3), keepdim=True)
+            # 혹시 max_pool 결과 크기가 x와 다를 경우 보정
+            block_mask = block_mask[:, :, :H, :W]
+            block_mask = block_mask.clamp(0.0, 0.3)
+        else:
+            block_mask = center_mask
 
-        # p_map = self.gamma * score / (score_mean + self.eps)
-        # p_map = p_map.clamp(0.0, 0.7) #1이면 항상 drop되니까
+        # -------------------------------------------------
+        # 3. drop mask → keep mask
+        # -------------------------------------------------
+        keep_mask = 1.0 - block_mask
 
-        # edge를 이미지/feature별 spatial 범위에서 0~1로 정규화
-        edge_min = edge.amin(dim=(2, 3), keepdim=True)
-        edge_max = edge.amax(dim=(2, 3), keepdim=True)
-        
-        edge_norm = (edge - edge_min) / (edge_max - edge_min + self.eps)
-        
-        # edge score를 0.2~0.8 사이로 squeeze
-        score_low = 0.2
-        score_high = 0.8
-        score = score_low + (score_high - score_low) * edge_norm
-        
-        # 평균 drop 확률은 gamma가 되도록 다시 정규화
-        score_mean = score.mean(dim=(2, 3), keepdim=True)
-        p_map = self.gamma * score / (score_mean + self.eps)
-        
-        # 최종 확률 상한
-        p_map = p_map.clamp(0.0, 0.3)
-
-        center_mask = (torch.rand_like(p_map) < p_map).to(dtype=p_map.dtype) #확률 적용하여 드롭블락 중심점 생성하는 부분
-        
-        #디버깅
-        if not hasattr(self, "_debug_dropmean_count"):
-            self._debug_dropmean_count = 0
-
-        if self._debug_dropmean_count < 50:
-            with open("edgedrop_debug.txt", "a") as f:
-                f.write(
-                    f"[MASK] training={self.training}, "
-                    f"always_on={self.always_on}, "
-                    f"p_mean={p_map.float().mean().item():.6f}, "
-                    f"p_max={p_map.float().max().item():.6f}, "
-                    f"p_min={p_map.float().min().item():.6f}, "
-                    f"drop_mean={center_mask.float().mean().item():.6f}\n"
-                )
-            self._debug_dropmean_count += 1
-        
-        # block_mask = F.max_pool2d(  #중심점 주변으로 블록생성
-        #     center_mask,
-        #     kernel_size=self.block_size,
-        #     stride=1,
-        #     padding=self.block_size // 2
-        # )
-
-        #block_mask = block_mask.clamp(0.0, 1.0)
-        
-
-            
-        # keep_mask = 1.0 - block_mask
-        keep_mask = 1.0 - center_mask
-
+        # activation magnitude 보정
         keep_ratio = keep_mask.mean(dim=(1, 2, 3), keepdim=True).clamp(min=self.eps)
 
         out = x * keep_mask / keep_ratio
