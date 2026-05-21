@@ -1119,7 +1119,7 @@ class Classify(nn.Module):
 class MCEdgeDropBlock2d(nn.Module): #MC
     def __init__(
         self,
-        gamma=0.03,
+        gamma=0.1,
         block_size=1,
         lambda_edge=3.0,
         eps=1e-6,
