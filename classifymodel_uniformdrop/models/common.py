@@ -1117,24 +1117,24 @@ class Classify(nn.Module):
 
         if getattr(self, "use_cls_dropblock", False) and hasattr(self, "cls_dropblock"):
            
-            x_before = x.detach().clone()  #디버깅
+            #x_before = x.detach().clone()  #디버깅
 
             x = self.cls_dropblock(x) #얘만 두면됨
 
-            #디버깅start
-            x_after = x.detach()
+            # #디버깅start
+            # x_after = x.detach()
 
-            diff = (x_after - x_before).abs()
+            # diff = (x_after - x_before).abs()
 
-            self.dropblock_debug = {
-                "shape": tuple(x_before.shape),
-                "same": bool(torch.allclose(x_before, x_after)),
-                "mean_abs_diff": float(diff.mean().cpu()),
-                "max_abs_diff": float(diff.max().cpu()),
-                "changed_ratio": float((diff > 0).float().mean().cpu()),
-            }            
-            print("[Classify DropBlock Debug]", self.dropblock_debug)
-            #디버깅end
+            # self.dropblock_debug = {
+            #     "shape": tuple(x_before.shape),
+            #     "same": bool(torch.allclose(x_before, x_after)),
+            #     "mean_abs_diff": float(diff.mean().cpu()),
+            #     "max_abs_diff": float(diff.max().cpu()),
+            #     "changed_ratio": float((diff > 0).float().mean().cpu()),
+            # }            
+            # print("[Classify DropBlock Debug]", self.dropblock_debug)
+            # #디버깅end
 
         x = self.pool(x)       # [B, 1280, 1, 1]
         x = x.flatten(1)       # [B, 1280]
